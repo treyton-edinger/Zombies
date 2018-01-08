@@ -1,2 +1,2 @@
 # Zombies
-A virtual world with zombies attacking. Based on the show The Walking Dead.
+In my graphical programming class we were tasked with a project to render at least 10 complex objects in a virtual setting. For my project i chose a virtual world with zombies attacking. Based on the show The Walking Dead. The project was written in C with the GLUT and OpenGL libraries. We were givin some demo files and extra libraries such as the Geom and srvertex libraries to start our project with.
