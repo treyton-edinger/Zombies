@@ -1,0 +1,117 @@
+# Makefile for srVertex.lib
+
+# set platform
+OS_NAME = $(shell uname)
+ifeq ("$(OS_NAME)","Darwin")
+	PLATFORM=OSX
+else ifeq ("$(findstring MINGW,$(OS_NAME))","MINGW")
+	PLATFORM=MINGW
+	EXE=.exe
+else
+	PLATFORM=$(OS_NAME)
+endif
+
+ifndef PRECISION
+PRECISION=SINGLE_PRECISION
+endif
+
+ifndef CC_OPTIMIZE
+CC_OPTIMIZE = -O0
+endif
+
+CFLAGS += -Wall -g $(CC_OPTIMIZE) -DPLATFORM_${PLATFORM} -D$(PRECISION) -fPIC
+export CFLAGS
+
+CP = cp
+RM = rm
+RMDIR = rmdir
+AR = ar
+RANLIB = ranlib
+
+header = include/srVertex/srVertex.h
+lib = lib/libsrVertex.a
+
+# === local lib prerequisites
+
+# grutil lib
+grutil_dir = ../grutil.lib
+includes += -I$(grutil_dir)/include
+libs += -L$(grutil_dir)/lib -lgrutil
+grutil_files = $(grutil_dir)/include/grutil/grutil.h $(grutil_dir)/lib/libgrutil.a
+mylib_files += $(grutil_files)
+mylib_dirs += $(grutil_dir)
+
+# geom lib
+geom_dir = ../geom.lib
+includes += -I$(geom_dir)/include
+geom_files += $(geom_dir)/include/geom/geom.h
+mylib_files += $(geom_files) 
+mylib_dirs += $(geom_dir)
+
+# precision lib
+precision_dir = ../precision.lib
+includes += -I$(precision_dir)/include
+precision_files += $(precision_dir)/include/precision/precision.h
+mylib_files += $(precision_files) 
+mylib_dirs += $(precision_dir)
+
+# === system lib prerequisites
+# glut lib
+ifeq ("$(OS_NAME)","Darwin")
+	GLUT_DIR = builtin
+	PLATFORM = OSX
+else
+	includes += -I$(GLUT_DIR)/include
+endif
+ifndef GLUT_DIR
+$(error GLUT_DIR env var not defined)
+endif
+
+# === targets
+all: $(mylib_files) $(header) $(lib)
+
+# local lib targets
+$(grutil_files): $(grutil_dir)/grutil.h $(grutil_dir)/grutil.c
+	$(MAKE) -C $(grutil_dir)
+
+$(geom_files):
+	make -C $(geom_dir)
+
+$(precision_files):
+	make -C $(precision_dir)
+
+$(header): include/srVertex srVertex.h srVertex.c
+	$(CP) srVertex.h include/srVertex/
+
+$(lib): lib srVertex.o
+	$(AR) -ru $@ srVertex.o
+	$(RANLIB) $@
+
+%.o: %.c
+	$(CC) -o $@ $(CFLAGS) $(includes) -c $<
+
+include/srVertex:
+	mkdir -p include $@
+
+lib:
+	mkdir lib
+
+clean:
+	for d in $(mylib_dirs); do $(MAKE) -C $$d clean; done
+	-$(RM) $(lib) $(header) *.o
+	-$(RMDIR) include/srVertex
+	-$(RMDIR) lib include
+	-$(RM) *.d *.d.???? *.d.?????
+
+# === autogen dependencies
+ifneq ($(MAKECMDGOALS),clean)
+sources = $(wildcard *.c)
+-include $(sources:.c=.d)
+endif
+
+%.d : %.c
+	@set -e; $(RM) -f $@; \
+	$(CC) -MM $(CFLAGS) $(includes) $< > $@.$$$$; \
+	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
+	$(RM) -f $@.$$$$
+

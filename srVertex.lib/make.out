@@ -1,0 +1,2 @@
+cc -o srVertex.o -Wall -g -O0 -I../geom.lib -I../geom.lib -c srVertex.c
+ar -rs libsrVertex.a srVertex.o

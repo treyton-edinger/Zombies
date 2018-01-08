@@ -1,0 +1,199 @@
+prog = temple_scene
+
+objs = $(prog).o temple.o pine_tree.o
+
+# set platform
+OS_NAME = $(shell uname)
+ifeq ("$(OS_NAME)","Darwin")
+	PLATFORM=OSX
+else ifeq ("$(findstring MINGW,$(OS_NAME))","MINGW")
+	PLATFORM=MINGW
+	EXE=.exe
+else
+	PLATFORM=$(OS_NAME)
+endif
+
+ifndef PRECISION
+PRECISION = SINGLE_PRECISION 
+endif
+
+ifndef CC_OPTIMIZE
+CC_OPTIMIZE = -O0
+endif
+
+CFLAGS += -Wall -g $(CC_OPTIMIZE) -DPLATFORM_${PLATFORM} -D$(PRECISION) -fPIC
+export CFLAGS
+
+RM = rm
+MAKE = make
+
+# === local lib prerequisites
+
+# terrain lib
+terrain_dir = ../terrain.lib
+includes += -I$(terrain_dir)/include
+libs += -L$(terrain_dir)/lib -lterrain
+terrain_files = $(terrain_dir)/include/terrain/grid_terrain.h $(terrain_dir)/lib/libterrain.a
+mylib_files += $(terrain_files)
+mylib_dirs += $(terrain_dir)
+
+# cam lib
+cam_dir = ../cam.lib
+includes += -I$(cam_dir)/include
+libs += -L$(cam_dir)/lib -lcam
+cam_files = $(cam_dir)/include/cam/cam.h $(cam_dir)/lib/libcam.a
+mylib_files += $(cam_files)
+mylib_dirs += $(cam_dir)
+
+# timeutil lib
+timeutil_dir = ../timeutil.lib
+includes += -I$(timeutil_dir)/include
+libs += -L$(timeutil_dir)/lib -ltimeutil
+timeutil_files = $(timeutil_dir)/include/timeutil/timeutil.h $(timeutil_dir)/lib/libtimeutil.a
+mylib_files += $(timeutil_files)
+mylib_dirs += $(timeutil_dir)
+
+# grutil lib
+grutil_dir = ../grutil.lib
+includes += -I$(grutil_dir)/include
+libs += -L$(grutil_dir)/lib -lgrutil
+grutil_files = $(grutil_dir)/include/grutil/grutil.h $(grutil_dir)/lib/libgrutil.a
+mylib_files += $(grutil_files)
+mylib_dirs += $(grutil_dir)
+
+# fontutil lib
+fontutil_dir = ../fontutil.lib
+includes += -I$(fontutil_dir)/include
+libs += -L$(fontutil_dir)/lib -lfontutil
+fontutil_files = $(fontutil_dir)/include/fontutil/fontutil.h $(fontutil_dir)/lib/libfontutil.a
+mylib_files += $(fontutil_files)
+mylib_dirs += $(fontutil_dir)
+ifdef ftgl_dir
+else
+libs += -lfontutil_glut
+endif
+
+# srVertex lib
+srVertex_dir = ../srVertex.lib
+includes += -I$(srVertex_dir)/include
+libs += -L$(srVertex_dir)/lib -lsrVertex
+srVertex_files = $(srVertex_dir)/include/srVertex/srVertex.h $(srVertex_dir)/lib/libsrVertex.a
+mylib_files += $(srVertex_files)
+mylib_dirs += $(srVertex_dir)
+
+# geom lib
+geom_dir = ../geom.lib
+includes += -I$(geom_dir)/include
+libs += -L$(geom_dir)/lib -lgeom
+geom_files = $(geom_dir)/include/geom/geom.h $(geom_dir)/lib/libgeom.a
+mylib_files += $(geom_files)
+mylib_dirs += $(geom_dir)
+
+# hashmap lib
+hashmap_dir = ../hashmap.lib
+includes += -I$(hashmap_dir)/include
+libs += -L$(hashmap_dir)/lib -lhashmap
+hashmap_files = $(hashmap_dir)/include/hashmap/hashmap.h $(hashmap_dir)/lib/libhashmap.a
+mylib_files += $(hashmap_files)
+mylib_dirs += $(hashmap_dir)
+
+# trace lib
+trace_dir = ../trace.lib
+includes += -I$(trace_dir)/include
+libs += -L$(trace_dir)/lib -ltrace -ltimeutil_glut
+trace_files = $(trace_dir)/include/trace/trace.h $(trace_dir)/lib/libtrace.a
+mylib_files += $(trace_files)
+mylib_dirs += $(trace_dir)
+
+# precision lib
+precision_dir = ../precision.lib
+includes += -I$(precision_dir)/include
+precision_files = $(precision_dir)/include/precision/precision.h $(precision_dir)/lib/libprecision.a
+mylib_files += $(precision_files)
+mylib_dirs += $(precision_dir)
+
+# === system lib prerequisites
+# glut lib
+ifeq ("$(PLATFORM)","OSX")
+	GLUT_DIR = builtin
+	libs += -framework GLUT
+else
+	includes +=  -I$(GLUT_DIR)/include
+	libs += -L$(GLUT_DIR)/lib -lglut
+endif
+ifndef GLUT_DIR
+$(error GLUT_DIR env var not defined)
+endif
+
+# opengl libs
+ifeq ("$(PLATFORM)","OSX")
+	libs += -framework OpenGL
+else ifeq ("$(PLATFORM)","MINGW")
+	libs += -lopengl32 -lglu32
+else
+	libs += -lGL -lGLU
+endif
+
+# === targets
+$(prog): $(mylib_files) $(objs)
+	$(CC) -o $@ $(objs) $(libs)
+
+$(terrain_files): $(terrain_dir)/grid_terrain.h $(terrain_dir)/grid_terrain.c
+	$(MAKE) -C $(terrain_dir)
+
+$(cam_files): $(cam_dir)/cam.h $(cam_dir)/cam.c
+	$(MAKE) -C $(cam_dir)
+
+$(grutil_files): $(grutil_dir)/grutil.h $(grutil_dir)/grutil.c
+	$(MAKE) -C $(grutil_dir)
+
+$(fontutil_files): $(fontutil_dir)/fontutil.h $(fontutil_dir)/fontutil.c 
+	$(MAKE) -C $(fontutil_dir)
+
+$(srVertex_files): $(srVertex_dir)/srVertex.h $(srVertex_dir)/srVertex.c
+	$(MAKE) -C $(srVertex_dir)
+
+$(geom_files): $(geom_dir)/geom.h $(geom_dir)/geom.c
+	$(MAKE) -C $(geom_dir)
+
+$(hashmap_files): $(hashmap_dir)/hashmap.h $(hashmap_dir)/hashmap.c
+	$(MAKE) -C $(hashmap_dir)
+
+$(timeutil_files): $(timeutil_dir)/timeutil.h $(timeutil_dir)/timeutil.c
+	$(MAKE) -C $(timeutil_dir)
+
+$(precision_files): $(precision_dir)/precision.h $(precision_dir)/precision.c
+	$(MAKE) -C $(precision_dir)
+
+%.o: %.c
+	$(CC) -o $@ $(CFLAGS) $(includes) -c $<
+
+check: $(prog)
+	./$(prog)
+
+clean:
+	for d in $(mylib_dirs); do $(MAKE) -C $$d clean; done
+	-$(RM) $(prog) *.o
+	-$(RM) *.d *.d.???? *.d.?????
+
+# === make source distribution
+date = $(shell date +"%Y-%m-%d")
+dist_file = ../$(prog).prog-and-libs-$(date).tar
+dist:
+	-$(RM) $(dist_file) $(dist_file).gz
+	tar cvf $(dist_file) $(mylib_dirs) ../$(prog).prog
+	gzip -9 $(dist_file)
+
+# === autogen dependencies
+ifneq ($(MAKECMDGOALS),clean)
+ifneq ($(MAKECMDGOALS),dist)
+sources = $(wildcard *.c)
+-include $(sources:.c=.d)
+endif
+endif
+
+%.d : %.c
+	@set -e; $(RM) -f $@; \
+	$(CC) -MM $(CFLAGS) $(includes) $< > $@.$$$$; \
+	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
+	$(RM) -f $@.$$$$
